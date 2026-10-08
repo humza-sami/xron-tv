@@ -1,0 +1,31 @@
+# Re-checks every stream daily and commits the refreshed channel list.
+# The app downloads channels/channels.json from this repo (see CHANNELS_URL in app/build.gradle.kts),
+# so dead links get fixed for users without publishing a new app version.
+name: Update channels
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ffprobe (measures each stream's real video quality)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: python3 tools/build_channels.py
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add channels/channels.json
+          git diff --cached --quiet || git commit -m "Update channel list"
+          git push
